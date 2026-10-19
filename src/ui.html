@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitKit — Turn any job posting into a tailored application kit</title>
+<style>
+  :root { --bg:#0e1116; --card:#171c24; --line:#262d38; --txt:#e8ecf1; --mut:#9aa4b2;
+          --acc:#4f8cff; --good:#3ecf8e; --warn:#f5a524; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+         font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.5; }
+  .wrap { max-width:720px; margin:0 auto; padding:20px 16px 64px; }
+  header { text-align:center; padding:28px 0 8px; }
+  header h1 { margin:0; font-size:2rem; letter-spacing:-.5px; }
+  header p { color:var(--mut); margin:8px 0 0; }
+  .badge { display:inline-block; margin-top:10px; font-size:.75rem; color:var(--mut);
+           border:1px solid var(--line); border-radius:999px; padding:4px 12px; }
+  .badge b { color:var(--good); font-weight:600; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
+          padding:16px; margin-top:16px; }
+  label { display:block; font-weight:600; margin:0 0 6px; font-size:.95rem; }
+  textarea { width:100%; min-height:150px; resize:vertical; background:#0b0e13; color:var(--txt);
+             border:1px solid var(--line); border-radius:10px; padding:12px; font-size:.9rem;
+             font-family:inherit; }
+  textarea:focus { outline:2px solid var(--acc); border-color:var(--acc); }
+  .row { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  button { cursor:pointer; border:none; border-radius:10px; font-size:1rem; font-weight:700; }
+  .primary { background:var(--acc); color:#fff; padding:14px 22px; flex:1; min-width:200px; }
+  .primary:disabled { opacity:.55; cursor:wait; }
+  .ghost { background:transparent; color:var(--mut); border:1px solid var(--line);
+           padding:14px 18px; font-weight:600; }
+  .hint { color:var(--mut); font-size:.85rem; margin-top:10px; }
+  .error { background:#3a1d22; border:1px solid #7a2e35; color:#ffb4b8;
+           border-radius:10px; padding:12px 14px; margin-top:16px; display:none; }
+  .loading { display:none; text-align:center; padding:36px 0; color:var(--mut); }
+  .spin { width:38px; height:38px; border:4px solid var(--line); border-top-color:var(--acc);
+          border-radius:50%; margin:0 auto 14px; animation:sp 1s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  #results { display:none; }
+  .score { display:flex; align-items:center; gap:16px; }
+  .score .num { font-size:3rem; font-weight:800; line-height:1;
+                background:linear-gradient(135deg,var(--acc),var(--good));
+                -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .bar { height:10px; background:#0b0e13; border-radius:99px; overflow:hidden; margin-top:10px; }
+  .bar i { display:block; height:100%; border-radius:99px;
+           background:linear-gradient(90deg,var(--acc),var(--good)); width:0;
+           transition:width .8s ease; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .chip { font-size:.85rem; border-radius:999px; padding:5px 12px; border:1px solid; }
+  .chip.ok { color:var(--good); border-color:#1f5c3f; background:#12291d; }
+  .chip.no { color:var(--warn); border-color:#6b4a16; background:#2b2111; }
+  h2 { font-size:1.15rem; margin:22px 0 4px; }
+  h3 { font-size:1rem; margin:18px 0 4px; }
+  ul.bullets { margin:8px 0 0; padding:0; list-style:none; }
+  ul.bullets li { background:#0b0e13; border:1px solid var(--line); border-radius:10px;
+                  padding:10px 12px; margin-top:8px; font-size:.93rem; }
+  .copy { background:transparent; border:1px solid var(--line); color:var(--mut);
+          font-size:.78rem; font-weight:600; border-radius:8px; padding:6px 10px; margin-top:8px; }
+  .copy:active { color:var(--good); border-color:var(--good); }
+  .letter { white-space:pre-wrap; background:#0b0e13; border:1px solid var(--line);
+            border-radius:10px; padding:14px; margin-top:8px; font-size:.93rem; }
+  footer { text-align:center; color:var(--mut); font-size:.8rem; margin-top:36px; }
+  footer a { color:var(--acc); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🧰 FitKit</h1>
+    <p>Paste any job posting + your CV.<br>Get a tailored application kit in seconds.</p>
+    <span class="badge">Powered by <b>open-weight AI</b> · Llama 3.1 8B on Cloudflare Workers AI</span>
+  </header>
+
+  <div class="card" id="form">
+    <label for="job">Job posting</label>
+    <textarea id="job" placeholder="Paste the full job posting text here…"></textarea>
+    <div style="height:14px"></div>
+    <label for="cv">Your CV</label>
+    <textarea id="cv" placeholder="Paste your CV text here…"></textarea>
+    <div class="row">
+      <button class="primary" id="go">Build my kit →</button>
+      <button class="ghost" id="sample" type="button">Try a sample</button>
+    </div>
+    <p class="hint">3 outputs: skills-match analysis · rewritten CV bullets · cover letter draft. Nothing is stored — your text never leaves this request.</p>
+  </div>
+
+  <div class="error" id="err"></div>
+
+  <div class="loading" id="loading">
+    <div class="spin"></div>
+    <div id="loadmsg">Reading your posting…</div>
+  </div>
+
+  <div id="results"></div>
+
+  <footer>
+    Built for the DEV Hacktoberfest Open-Source AI Challenge ·
+    <a href="https://github.com/nostoryworld/fitkit">github.com/nostoryworld/fitkit</a>
+  </footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const msgs = ["Reading your posting…","Matching skills against your CV…","Rewriting your bullets…","Drafting your cover letter…"];
+let mi;
+
+const SAMPLE_JOB = `Junior Frontend Developer — Brightline Studio (Remote, Worldwide)
+
+Brightline Studio is hiring a Junior Frontend Developer to join our product team. You will build responsive web interfaces, collaborate with designers, and ship features used by thousands of customers.
+
+Requirements:
+- 1+ years building websites with HTML, CSS, and JavaScript
+- Experience with a modern framework (React, Vue, or similar)
+- Familiarity with Git and collaborative workflows (pull requests, code review)
+- Understanding of REST APIs and fetching data from backends
+- Strong communication skills and comfort working async in a remote team
+
+Nice to have:
+- TypeScript experience
+- Familiarity with automated testing (Jest, Cypress, or similar)
+- A portfolio or GitHub with personal projects
+
+We offer $45k–$60k, fully remote, flexible hours.`;
+
+const SAMPLE_CV = `Adaeze Okonkwo — adaeze.okonkwo@example.com — Lagos, Nigeria
+
+Aspiring frontend developer. Built 6 personal projects with HTML, CSS, and vanilla JavaScript, including a weather dashboard that fetches data from a public REST API and a responsive portfolio site. Completed a 3-month online course in React (hooks, components, state). Comfortable with Git: branching, commits, and pull requests on group class projects. Strong written English; active in online study groups across time zones.
+
+Skills: HTML, CSS, JavaScript (ES6), React (basics), Git & GitHub, REST APIs, responsive design.
+Education: B.Sc. Computer Science (in view).`;
+
+$("sample").onclick = () => { $("job").value = SAMPLE_JOB; $("cv").value = SAMPLE_CV; };
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function showError(m){ const e=$("err"); e.textContent=m; e.style.display="block"; e.scrollIntoView({behavior:"smooth",block:"center"}); }
+function hideError(){ $("err").style.display="none"; }
+
+$("go").onclick = async () => {
+  hideError();
+  const jobText = $("job").value.trim(), cvText = $("cv").value.trim();
+  if (jobText.length < 50) return showError("Please paste a fuller job posting (at least 50 characters).");
+  if (cvText.length < 50) return showError("Please paste more of your CV (at least 50 characters).");
+
+  $("form").style.display = "none"; $("results").style.display = "none";
+  $("loading").style.display = "block";
+  mi = 0; $("loadmsg").textContent = msgs[0];
+  const timer = setInterval(() => { mi = (mi+1) % msgs.length; $("loadmsg").textContent = msgs[mi]; }, 2600);
+  $("go").disabled = true;
+
+  try {
+    const r = await fetch("/api/analyze", {
+      method: "POST", headers: {"content-type":"application/json"},
+      body: JSON.stringify({ jobText, cvText })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Something went wrong.");
+    render(data.kit);
+  } catch (e) {
+    $("loading").style.display = "none"; $("form").style.display = "block";
+    showError(e.message || "Request failed. Please try again.");
+  } finally {
+    clearInterval(timer); $("go").disabled = false;
+  }
+};
+
+function render(kit){
+  $("loading").style.display = "none";
+  const m = kit.match, score = Math.max(0, Math.min(100, m.score|0));
+  const chips = (arr, cls) => arr.map(s => `<span class="chip ${cls}">${esc(s)}</span>`).join("");
+  const bullets = kit.bullets.map(b => `<li>${esc(b)}</li>`).join("");
+
+  $("results").innerHTML = `
+    <div class="card">
+      <h2 style="margin-top:0">📊 Skills-match analysis</h2>
+      <div class="score"><div class="num">${score}</div>
+        <div style="flex:1"><div style="font-weight:700">Match score</div>
+        <div class="bar"><i id="barfill"></i></div></div></div>
+      <p style="color:var(--mut)">${esc(m.summary)}</p>
+      <h3>✅ Matched skills</h3><div class="chips">${chips(m.matched, "ok")}</div>
+      <h3>⚠️ Missing / to develop</h3><div class="chips">${chips(m.missing, "no")}</div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">✍️ Rewritten CV bullets</h2>
+      <p class="hint" style="margin-top:0">Tailored to the posting's language. Review before sending — the AI never invents experience.</p>
+      <ul class="bullets">${bullets}</ul>
+      <button class="copy" data-copy="bullets">Copy bullets</button>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">💌 Cover letter draft</h2>
+      <div class="letter" id="letter">${esc(kit.coverLetter)}</div>
+      <button class="copy" data-copy="letter">Copy cover letter</button>
+    </div>
+    <div class="row"><button class="ghost" id="again" style="flex:1">← Analyze another posting</button></div>`;
+
+  requestAnimationFrame(() => { const b = $("barfill"); if (b) b.style.width = score + "%"; });
+  $("results").style.display = "block";
+  $("results").scrollIntoView({behavior:"smooth"});
+
+  document.querySelectorAll(".copy").forEach(btn => btn.onclick = async () => {
+    const kind = btn.dataset.copy;
+    const text = kind === "letter" ? kit.coverLetter
+      : kit.bullets.map((b,i) => `• ${b}`).join("\n");
+    try { await navigator.clipboard.writeText(text); btn.textContent = "Copied ✓"; }
+    catch { btn.textContent = "Copy failed — select manually"; }
+    setTimeout(() => btn.textContent = kind === "letter" ? "Copy cover letter" : "Copy bullets", 2000);
+  });
+  $("again").onclick = () => { $("results").style.display="none"; $("form").style.display="block"; window.scrollTo({top:0,behavior:"smooth"}); };
+}
+</script>
+</body>
+</html>
